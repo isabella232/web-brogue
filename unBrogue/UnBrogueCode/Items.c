@@ -965,6 +965,228 @@ void populateItems(short upstairsX, short upstairsY) {
 	//DEBUG printf("\nD:%i: %lu gold generated so far.", rogue.depthLevel, rogue.goldGenerated);
 }
 
+// Generates and places items for the level. Must pass the location of the up-stairway on the level.
+void populateItemsDebug(short upstairsX, short upstairsY) {
+	if (!ITEMS_ENABLED) {
+		return;
+	}
+	item *theItem;
+	unsigned short itemSpawnHeatMap[DCOLS][DROWS];
+	short i, j, numberOfItems, numberOfGoldPiles, goldBonusProbability, x = 0, y = 0;
+	unsigned long totalHeat;
+	unsigned long theCategory;
+	short theKind;
+	
+#ifdef AUDIT_RNG
+	char RNGmessage[100];
+#endif
+	
+	if (rogue.depthLevel > AMULET_LEVEL) {
+        if (rogue.depthLevel - AMULET_LEVEL - 1 > 5) {
+            numberOfItems = 1;
+        } else {
+            const short lumenstoneDistribution[6] = {3, 3, 3, 2, 2, 2};
+            numberOfItems = lumenstoneDistribution[rogue.depthLevel - AMULET_LEVEL - 1];
+        }
+		numberOfGoldPiles = 0;
+	} else {
+		rogue.lifePotionFrequency += 34;
+		rogue.strengthPotionFrequency += 17;
+		rogue.enchantScrollFrequency += 30;
+		numberOfItems = 3;
+		while (rand_percent(60)) {
+			numberOfItems++;
+		}
+		if (rogue.depthLevel <= 3) {
+			numberOfItems += 2; // 6 extra items to kickstart your career as a rogue
+		} else if (rogue.depthLevel <= 5) {
+			numberOfItems++; // and 2 more here
+		}
+
+		numberOfGoldPiles = min(5, (int) (rogue.depthLevel / 4));
+		for (goldBonusProbability = 60;
+			 rand_percent(goldBonusProbability) && numberOfGoldPiles <= 10;
+			 goldBonusProbability -= 15) {
+			
+			numberOfGoldPiles++;
+		}
+		// Adjust the amount of gold if we're past depth 5 and we were below or above
+		// the production schedule as of the previous depth.
+		if (rogue.depthLevel > 5) {
+			if (rogue.goldGenerated < aggregateGoldLowerBound(rogue.depthLevel - 1)) {
+				numberOfGoldPiles += 2;
+			} else if (rogue.goldGenerated > aggregateGoldUpperBound(rogue.depthLevel - 1)) {
+				numberOfGoldPiles -= 2;
+			}
+		}
+	}
+	
+	for (i=0; i<DCOLS; i++) {
+		for (j=0; j<DROWS; j++) {
+			itemSpawnHeatMap[i][j] = 50000;
+		}
+	}
+	fillItemSpawnHeatMap(itemSpawnHeatMap, 5, upstairsX, upstairsY);
+	totalHeat = 0;
+	
+#ifdef AUDIT_RNG
+	sprintf(RNGmessage, "\n\nInitial heat map for level %i:\n", rogue.currentTurnNumber);
+	RNGLog(RNGmessage);
+#endif
+	
+	for (j=0; j<DROWS; j++) {
+		for (i=0; i<DCOLS; i++) {
+			
+			if (cellHasTerrainFlag(i, j, T_OBSTRUCTS_ITEMS | T_PATHING_BLOCKER)
+				|| (pmap[i][j].flags & (IS_CHOKEPOINT | IN_LOOP | IS_IN_MACHINE))
+				|| passableArcCount(i, j) > 1) { // not in hallways or quest rooms, please
+				itemSpawnHeatMap[i][j] = 0;
+			} else if (itemSpawnHeatMap[i][j] == 50000) {
+				itemSpawnHeatMap[i][j] = 0;
+				pmap[i][j].layers[DUNGEON] = PERM_WALL; // due to a bug that created occasional isolated one-cell islands;
+				// not sure if it's still around, but this is a good-enough failsafe
+			}
+#ifdef AUDIT_RNG
+			sprintf(RNGmessage, "%u%s%s\t%s",
+					itemSpawnHeatMap[i][j],
+					((pmap[i][j].flags & IS_CHOKEPOINT) ? " (C)": ""), // chokepoint
+					((pmap[i][j].flags & IN_LOOP) ? " (L)": ""), // loop
+					(i == DCOLS-1 ? "\n" : ""));
+			RNGLog(RNGmessage);
+#endif
+			totalHeat += itemSpawnHeatMap[i][j];
+		}
+	}
+
+	if (D_INSPECT_LEVELGEN) {
+		short **map = allocDynamicGrid();
+		for (i=0; i<DCOLS; i++) {
+			for (j=0; j<DROWS; j++) {
+				map[i][j] = itemSpawnHeatMap[i][j] * -1;
+			}
+		}
+		dumpLevelToScreen();
+		displayMap(map);
+		freeDynamicGrid(map);
+		message("Item spawn heat map:", true);
+	}
+	
+	for (i=0; i<numberOfItems; i++) {
+		theCategory = ALL_ITEMS & ~GOLD; // gold is placed separately, below, so it's not a punishment
+		theKind = -1;
+		
+		scrollTable[SCROLL_ENCHANTING].frequency = rogue.enchantScrollFrequency;
+		potionTable[POTION_STRENGTH].frequency = rogue.strengthPotionFrequency;
+        potionTable[POTION_LIFE].frequency = rogue.lifePotionFrequency;
+		rogue.witchcraftChance = 15;
+		
+		// Adjust the desired item category if necessary.
+		if ((rogue.foodSpawned + foodTable[RATION].strengthRequired / 2) * 3
+			<= pow(rogue.depthLevel, 1.3) * foodTable[RATION].strengthRequired * 0.55) {
+			// guarantee a certain nutrition minimum of the equivalent of one ration every three levels,
+			// with more food on deeper levels since they generally take more turns to complete
+			theCategory = FOOD;
+			if (rogue.depthLevel > AMULET_LEVEL) {
+				numberOfItems++;
+			}
+		} else if (rogue.depthLevel > AMULET_LEVEL) {
+			theCategory = GEM;
+		} else if (rogue.lifePotionsSpawned * 4 + 3 < rogue.depthLevel) {
+            theCategory = POTION;
+            theKind = POTION_LIFE;
+        }
+
+		// Debug items
+		if(i==0) {
+			theCategory = TALISMAN;
+			theKind = TALISMAN_SINISTER;
+		}
+		else if(i<3) {
+			theCategory = WEAPON;
+			theKind = SWORD;
+		}
+		else if(i < 10) {
+			theCategory = POTION;
+			theKind = POTION_STRENGTH;
+		}
+
+		// Generate the item.
+		theItem = generateItem(theCategory, theKind);
+		
+		if (theItem->category & FOOD) {
+			rogue.foodSpawned += foodTable[theItem->kind].strengthRequired;
+		}
+		
+		// Choose a placement location not in a hallway.
+		do {
+			if ((theItem->category & FOOD) || ((theItem->category & POTION) && theItem->kind == POTION_STRENGTH)) {
+				randomMatchingLocation(&x, &y, FLOOR, NOTHING, -1); // food and gain strength don't follow the heat map
+			} else {
+				getItemSpawnLoc(itemSpawnHeatMap, &x, &y, &totalHeat);
+			}
+		} while (passableArcCount(x, y) > 1);
+#ifdef BROGUE_ASSERTS
+		assert(coordinatesAreInMap(x, y));
+#endif
+		// Cool off the item spawning heat map at the chosen location:
+		coolHeatMapAt(itemSpawnHeatMap, x, y, &totalHeat);
+		
+		// Regulate the frequency of enchantment scrolls and strength/life potions.
+		if ((theItem->category & SCROLL) && theItem->kind == SCROLL_ENCHANTING) {
+			rogue.enchantScrollFrequency -= 50;
+			//DEBUG printf("\ndepth %i: %i enchant scrolls generated so far", rogue.depthLevel, ++enchantScrolls);
+		} else if ((theItem->category & POTION) && theItem->kind == POTION_LIFE) {
+			//DEBUG printf("\n*** Depth %i: generated a life potion at %i frequency!", rogue.depthLevel, rogue.lifePotionFrequency);
+			rogue.lifePotionFrequency -= 150;
+            rogue.lifePotionsSpawned++;
+		} else if ((theItem->category & POTION) && theItem->kind == POTION_STRENGTH) {
+			//DEBUG printf("\n*** Depth %i: generated a strength potion at %i frequency!", rogue.depthLevel, rogue.strengthPotionFrequency);
+			rogue.strengthPotionFrequency -= 50;
+		}
+		
+		// Place the item.
+		placeItem(theItem, x, y); // Random valid location already obtained according to heat map.
+		
+		if (D_INSPECT_LEVELGEN) {
+			short **map = allocDynamicGrid();
+			short i2, j2;
+			for (i2=0; i2<DCOLS; i2++) {
+				for (j2=0; j2<DROWS; j2++) {
+					map[i2][j2] = itemSpawnHeatMap[i2][j2] * -1;
+				}
+			}
+			dumpLevelToScreen();
+			displayMap(map);
+			freeDynamicGrid(map);
+			plotCharWithColor(theItem->displayChar, mapToWindowX(x), mapToWindowY(y), black, purple);
+			message("Added an item.", true);
+		}
+	}
+	
+	// Now generate gold.
+	for (i=0; i<numberOfGoldPiles; i++) {
+		theItem = generateItem(GOLD, -1);
+		getItemSpawnLoc(itemSpawnHeatMap, &x, &y, &totalHeat);
+		coolHeatMapAt(itemSpawnHeatMap, x, y, &totalHeat);
+		placeItem(theItem, x, y);
+		rogue.goldGenerated += theItem->quantity;
+	}
+	
+	if (D_INSPECT_LEVELGEN) {
+		dumpLevelToScreen();
+		message("Added gold.", true);
+	}
+	
+	scrollTable[SCROLL_ENCHANTING].frequency	= 0;	// No enchant scrolls or strength/life potions can spawn except via initial
+	potionTable[POTION_STRENGTH].frequency      = 0;	// item population or blueprints that create them specifically.
+    potionTable[POTION_LIFE].frequency          = 0;
+	rogue.witchcraftChance = 0;							// No boosting of items for talisman of witchcraft
+	
+	//DEBUG printf("\nD:%i: %lu gold generated so far.", rogue.depthLevel, rogue.goldGenerated);
+}
+
+
+
 // Name of this function is a bit misleading -- basically returns true iff the item will stack without consuming an extra slot
 // i.e. if it's a throwing weapon with a sibling already in your pack. False for potions and scrolls unless you have the
 // talisman of alchemy.
