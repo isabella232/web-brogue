@@ -2374,7 +2374,7 @@ void betweenOctant1andN(short *x, short *y, short x0, short y0, short n) {
 // If cautiousOnWalls is set, we will not illuminate blocking tiles unless the tile one space closer to the origin
 // is visible to the player; this is to prevent lights from illuminating a wall when the player is on the other
 // side of the wall.
-void getFOVMask(char grid[DCOLS][DROWS], short xLoc, short yLoc, int64_t maxRadius,
+void getFOVMask(char grid[DCOLS][DROWS], short xLoc, short yLoc, float maxRadius,
 				unsigned long forbiddenTerrain,	unsigned long forbiddenFlags, boolean cautiousOnWalls) {
 	short i;
 	
@@ -2385,7 +2385,7 @@ void getFOVMask(char grid[DCOLS][DROWS], short xLoc, short yLoc, int64_t maxRadi
 }
 
 // This is a custom implementation of recursive shadowcasting.
-void scanOctantFOV(char grid[DCOLS][DROWS], short xLoc, short yLoc, short octant, int64_t maxRadius,
+void scanOctantFOV(char grid[DCOLS][DROWS], short xLoc, short yLoc, short octant, float maxRadius,
 				   short columnsRightFromOrigin, long startSlope, long endSlope, unsigned long forbiddenTerrain,
 				   unsigned long forbiddenFlags, boolean cautiousOnWalls) {
 	
@@ -2404,11 +2404,11 @@ void scanOctantFOV(char grid[DCOLS][DROWS], short xLoc, short yLoc, short octant
 	iEnd = max(a, b);
 	
 	// restrict vision to a circle of radius maxRadius
-	if ((columnsRightFromOrigin*columnsRightFromOrigin + iEnd*iEnd) >= maxRadius*maxRadius >> (FP_BASE*2)) {
+	if ((columnsRightFromOrigin*columnsRightFromOrigin + iEnd*iEnd) >= maxRadius*maxRadius) {
 		return;
 	}
-	if ((columnsRightFromOrigin*columnsRightFromOrigin + iStart*iStart) >= maxRadius*maxRadius >> (FP_BASE*2)) {
-        iStart = (int) (-1 * fp_sqrt((maxRadius*maxRadius >> FP_BASE) - (columnsRightFromOrigin*columnsRightFromOrigin << FP_BASE)) >> FP_BASE);
+	if ((columnsRightFromOrigin*columnsRightFromOrigin + iStart*iStart) >= maxRadius*maxRadius) {
+		iStart = (int) (-1 * sqrt(maxRadius*maxRadius - columnsRightFromOrigin*columnsRightFromOrigin) + FLOAT_FUDGE);
 	}
 	
 	x = xLoc + columnsRightFromOrigin;
