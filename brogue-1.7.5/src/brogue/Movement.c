@@ -2389,7 +2389,7 @@ void scanOctantFOV(char grid[DCOLS][DROWS], short xLoc, short yLoc, short octant
 				   short columnsRightFromOrigin, long startSlope, long endSlope, unsigned long forbiddenTerrain,
 				   unsigned long forbiddenFlags, boolean cautiousOnWalls) {
 	
-	if (columnsRightFromOrigin << FP_BASE >= maxRadius) return;
+	if (columnsRightFromOrigin >= maxRadius) return;
 	
 	short i, a, b, iStart, iEnd, x, y, x2, y2; // x and y are temporary variables on which we do the octant transform
 	long newStartSlope, newEndSlope;
@@ -2446,11 +2446,11 @@ void scanOctantFOV(char grid[DCOLS][DROWS], short xLoc, short yLoc, short octant
 			grid[x][y] = 1;
 		}
 		if (!cellObstructed && !currentlyLit) { // next column slope starts here
-			newStartSlope = (long int) ((LOS_SLOPE_GRANULARITY * (i) - LOS_SLOPE_GRANULARITY / 2) / (columnsRightFromOrigin * 2 + 1) * 2);
+			newStartSlope = (long int) ((LOS_SLOPE_GRANULARITY * (i) - LOS_SLOPE_GRANULARITY / 2) / (columnsRightFromOrigin + 0.5));
 			currentlyLit = true;
 		} else if (cellObstructed && currentlyLit) { // next column slope ends here
 			newEndSlope = (long int) ((LOS_SLOPE_GRANULARITY * (i) - LOS_SLOPE_GRANULARITY / 2)
-							/ (columnsRightFromOrigin * 2 - 1) * 2);
+							/ (columnsRightFromOrigin - 0.5));
 			if (newStartSlope <= newEndSlope) {
 				// run next column
 				scanOctantFOV(grid, xLoc, yLoc, octant, maxRadius, columnsRightFromOrigin + 1, newStartSlope, newEndSlope,
