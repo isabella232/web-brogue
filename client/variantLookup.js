@@ -20,6 +20,12 @@ define([
                 consoleColumns: 100,
                 consoleRows: 34
             },
+            "FBROGUEVB1": {
+                code: "FBROGUEVB1",
+                display: "fBrogue Beta 1",
+                consoleColumns: 100,
+                consoleRows: 34
+            },
             "GBROGUEV1180211": {
                 code: "GBROGUEV1180211",
                 display: "gBrogue v1.18.02.11",
