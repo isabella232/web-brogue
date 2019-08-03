@@ -1,0 +1,173 @@
+diff -ruN /home/flend/projects/web-brogue/brogue/src/brogue/Architect.c brogue/Architect.c
+diff -ruN /home/flend/projects/web-brogue/brogue/src/brogue/Items.c brogue/Items.c
+--- /home/flend/projects/web-brogue/brogue/src/brogue/Items.c	2019-06-22 20:59:50.566084884 +0100
++++ brogue/Items.c	2018-03-11 17:56:36.000000000 +0000
+@@ -160,7 +160,7 @@
+ 					break;
+ 			}
+ 			
+-			if (rand_percent(40)) {
++			if (rand_percent(100)) { //100% chance to enchant, default is 40
+ 				theItem->enchant1 += rand_range(1, 3);
+ 				if (rand_percent(50)) {
+ 					// cursed
+@@ -177,12 +177,21 @@
+ 					// give it a good runic; lower damage items are more likely to be runic
+ 					theItem->enchant2 = rand_range(0, NUMBER_GOOD_WEAPON_ENCHANT_KINDS - 1);
+ 					theItem->flags |= ITEM_RUNIC;
++					//new code, increase enchant level of runics, similar to other enchants levels being increased
++					int variable_percent = 94;
++					while (rand_percent(variable_percent)) {
++						theItem->enchant1++;
++						variable_percent -= 1;
++					}
++					//end of new code
+ 					if (theItem->enchant2 == W_SLAYING) {
+ 						theItem->vorpalEnemy = chooseVorpalEnemy();
+ 					}
+ 				} else {
+-                    while (rand_percent(10)) {
++		    int variable_percent = 90; //new variable to reduce percent chance to enchant with more enchants
++                    while (rand_percent(variable_percent)) { //variable% chance to enchant, default is 10
+                         theItem->enchant1++;
++			variable_percent -=1; //reduce the chance by 1% for each sucessful enchant
+                     }
+                 }
+ 			}
+@@ -196,7 +205,7 @@
+ 				theItem->flags &= ~(ITEM_CURSED | ITEM_RUNIC); // throwing weapons can't be cursed or runic
+ 				theItem->enchant1 = 0; // throwing weapons can't be magical
+ 			}
+-			theItem->charges = WEAPON_KILLS_TO_AUTO_ID; // kill 20 enemies to auto-identify
++			theItem->charges = 1; // kill 20 enemies to auto-identify //default WEAPON_KILLS_TO_AUTO_ID, changed to 1 kill to ID
+ 			break;
+ 			
+ 		case ARMOR:
+@@ -207,8 +216,8 @@
+ 			theItem->armor = randClump(armorTable[itemKind].range);
+ 			theItem->strengthRequired = armorTable[itemKind].strengthRequired;
+ 			theItem->displayChar = ARMOR_CHAR;
+-			theItem->charges = ARMOR_DELAY_TO_AUTO_ID; // this many turns until it reveals its enchants and whether runic
+-			if (rand_percent(40)) {
++			theItem->charges = 1; // this many turns until it reveals its enchants and whether runic //default ARMOR_DELAY_TO_AUTO_ID, changed to 1 turn to ID
++			if (rand_percent(100)) { //100% chance to enchant, default is 40
+ 				theItem->enchant1 += rand_range(1, 3);
+ 				if (rand_percent(50)) {
+ 					// cursed
+@@ -221,12 +230,21 @@
+ 				} else if (rand_range(0, 95) > theItem->armor) { // give it a good runic
+ 					theItem->enchant2 = rand_range(0, NUMBER_GOOD_ARMOR_ENCHANT_KINDS - 1);
+ 					theItem->flags |= ITEM_RUNIC;
++					//new code, increase enchant level of runics, similar to other enchants levels being increased
++					int variable_percent = 94;
++					while (rand_percent(variable_percent)) {
++						theItem->enchant1++;
++						variable_percent -= 1;
++					}
++					//end of new code
+ 					if (theItem->enchant2 == A_IMMUNITY) {
+ 						theItem->vorpalEnemy = chooseVorpalEnemy();
+ 					}
+ 				} else {
+-                    while (rand_percent(10)) {
++		    int variable_percent = 90; //new variable to reduce percent chance to enchant with more enchants
++                    while (rand_percent(variable_percent)) { //variable% chance to enchant, default is 10
+                         theItem->enchant1++;
++			variable_percent -=1; //reduce the chance by 1% for each sucessful enchant
+                     }
+                 }
+ 			}
+@@ -253,16 +271,19 @@
+ 			theEntry = &staffTable[itemKind];
+ 			theItem->displayChar = STAFF_CHAR;
+ 			theItem->charges = 2;
+-			if (rand_percent(50)) {
++			if (rand_percent(100)) {  //100% chance to enchant, default is 50
+ 				theItem->charges++;
+-				if (rand_percent(15)) {
++				if (rand_percent(100)) { //100% chance to enchant, default is 15
+ 					theItem->charges++;
+-                    while (rand_percent(10)) {
+-                        theItem->charges++;
++			int variable_percent = 85; //new variable to reduce percent chance to enchant with more enchants
++                	while (rand_percent(variable_percent)) { //variable% chance to enchant, default is 10
++                        theItem->charges++; //must be charges++ instead of enchant1++ because enchant1 is set to charges below
++			variable_percent -=1; //reduce the chance by 1% for each sucessful enchant
+                     }
+ 				}
+ 			}
+-			theItem->enchant1 = theItem->charges;
++			theItem->flags |= ITEM_IDENTIFIED; //auto-ID, not here by default
++			theItem->enchant1 = theItem->charges; //enchant1 set to charges here
+ 			theItem->enchant2 = (itemKind == STAFF_BLINKING || itemKind == STAFF_OBSTRUCTION ? 1000 : 500); // start with no recharging mojo
+ 			break;
+ 		case WAND:
+@@ -280,14 +301,16 @@
+ 			theEntry = &ringTable[itemKind];
+ 			theItem->displayChar = RING_CHAR;
+ 			theItem->enchant1 = randClump(ringTable[itemKind].range);
+-			theItem->charges = RING_DELAY_TO_AUTO_ID; // how many turns of being worn until it auto-identifies
++			theItem->charges = 1; // how many turns of being worn until it auto-identifies //default RING_DELAY_TO_AUTO_ID, changed to 1 turn to ID
+ 			if (rand_percent(16)) {
+ 				// cursed
+ 				theItem->enchant1 *= -1;
+ 				theItem->flags |= ITEM_CURSED;
+ 			} else {
+-                while (rand_percent(10)) {
+-                    theItem->enchant1++;
++		    int variable_percent = 85; //new variable to reduce percent chance to enchant with more enchants
++                    while (rand_percent(variable_percent)) { //variable% chance to enchant, default is 10
++                        theItem->enchant1++;
++			variable_percent -=1; //reduce the chance by 1% for each sucessful enchant
+                 }
+             }
+ 			break;
+@@ -298,8 +321,10 @@
+             theItem->displayChar = CHARM_CHAR;
+             theItem->charges = 0; // Charms are initially ready for use.
+             theItem->enchant1 = randClump(charmTable[itemKind].range);
+-            while (rand_percent(7)) {
+-                theItem->enchant1++;
++		    int variable_percent = 88; //new variable to reduce percent chance to enchant with more enchants
++                    while (rand_percent(variable_percent)) { //variable% chance to enchant, default is 10
++                        theItem->enchant1++;
++			variable_percent -=1; //reduce the chance by 1% for each sucessful enchant
+             }
+ 			theItem->flags |= ITEM_IDENTIFIED;
+             break;
+@@ -505,7 +530,7 @@
+ 			numberOfItems++;
+ 		}
+ 		if (rogue.depthLevel <= 2) {
+-			numberOfItems += 2; // 4 extra items to kickstart your career as a rogue
++			numberOfItems += 10; // 10(?) (default is 2, which creates 2) extra items to kickstart your career as a rogue
+ 		} else if (rogue.depthLevel <= 4) {
+ 			numberOfItems++; // and 2 more here
+ 		}
+diff -ruN /home/flend/projects/web-brogue/brogue/src/brogue/MainMenu.c brogue/MainMenu.c
+--- /home/flend/projects/web-brogue/brogue/src/brogue/MainMenu.c	2019-06-22 20:59:50.566084884 +0100
++++ brogue/MainMenu.c	2018-03-11 17:26:13.000000000 +0000
+diff -ruN /home/flend/projects/web-brogue/brogue/src/brogue/Movement.c brogue/Movement.c
+--- /home/flend/projects/web-brogue/brogue/src/brogue/Movement.c	2019-06-22 20:59:50.566084884 +0100
++++ brogue/Movement.c	2018-03-11 19:35:57.000000000 +0000
+@@ -994,7 +994,19 @@
+ 				recordKeystroke(directionKeys[initialDirection], false, false);
+ 				alreadyRecorded = true;
+ 			}
+-			useStairs(1);
++			#include <time.h>
++			#include <stdlib.h>
++			srand(time(NULL));
++			//if (rogue.depthLevel > AMULET_LEVEL) {
++				int randomStairsVariable = rand() % (rogue.depthLevel - 26); //random floor movement! instead of going down 1 floor, you go down X floors!
++				int randomStairsCurrent = 0;
++				//if (randomStairsCurrent <= randomStairsVariable) {
++				for (useStairs(1); randomStairsCurrent < randomStairsVariable; randomStairsCurrent += 1)
++					{
++						useStairs(1);
++					}
++				//} else { useStairs(1);}
++			//}
+ 		} else if (rogue.upLoc[0] == newX && rogue.upLoc[1] == newY) {
+ 			if (!alreadyRecorded) {
+ 				recordKeystroke(directionKeys[initialDirection], false, false);

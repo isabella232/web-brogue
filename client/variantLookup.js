@@ -37,6 +37,12 @@ define([
                 display: "unBrogue v1.1.6",
                 consoleColumns: 100,
                 consoleRows: 34
+            },
+            "COFFEEBROGUEV174": {
+                code: "COFFEEBROGUEV174",
+                display: "coffeeBrogue",
+                consoleColumns: 100,
+                consoleRows: 34
             }
         }
     };
